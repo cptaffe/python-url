@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 
-import threading
+import multiprocessing as mp
 import urllib2
-import Queue
 
 # threaded function
 def get_url(q, url):
 	try:
-		q.put(urllib2.urlopen(url).read())
-	except (ValueError), e:
+		s = urllib2.urlopen(url).read()
+		q.put(s) # different line, doesn't lock
+	except (ValueError, urllib2.HTTPError) as e:
 		q.put(e) # put error
 	
 # create que, cool for threading
-q = Queue.Queue()
+q = mp.Queue()
 
 # open file
 try:
@@ -24,7 +24,7 @@ except:
 threads = []
 for line in f:
 	try:
-		t = threading.Thread(target = get_url, args = (q, line))
+		t = mp.Process(target = get_url, args = (q, line))
 		t.start()
 		threads.append(t)
 	except:
@@ -34,10 +34,6 @@ for line in f:
 # close file
 f.close()
 
-# wait for threads
-for t in threads:
-	t.join()
-
 # print urls
 try:
 	f = open("output.txt", "w")
@@ -46,9 +42,9 @@ except:
 
 for t in threads:
 	s = q.get()
-	if type(s) is ValueError:
-		print "Error: %s" % s
-	else:
+	if type(s) is str:
 		f.write(s)
+	else:
+		print "Error: %s" % s
 
 f.close()
